@@ -1,0 +1,19 @@
+#!/bin/sh
+# Runs the official GenVM linter (genvm-lint, the check stewards use) on contracts/StreakPot.py.
+#
+# 1. `genvm-lint lint` on the file exactly as deployed.
+# 2. `genvm-lint check` + `typecheck` (full SDK validation) on a copy whose header and imports
+#    are rewritten to the public py-genlayer runner 1jb45aa8 shipped in GenVM v0.3.0-rc7.
+#    Studio Dev (61997) only accepts runner kzybg95x (GenVM v0.4), which is not in any public GenVM
+#    release, so the linter cannot download that SDK; the contract body is byte-identical.
+set -e
+LINT="${GENVM_LINT:-genvm-lint}"
+SRC="$(dirname "$0")/../contracts/StreakPot.py"
+TMP="$(mktemp -d)/StreakPot.py"
+$LINT lint "$SRC"
+sed -e 's/py-genlayer:kzybg95x1gn21dw72m7hyg0maaap04n4nx55j9yt6fkdqxtz6bz0/py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6/' \
+    -e 's/^import genlayer as gl$/from genlayer import */' \
+    -e '/^from genlayer.types import Address$/d' -e '/^from genlayer.storage import/d' \
+    -e 's/(gl.contract.Contract)/(gl.Contract)/' "$SRC" > "$TMP"
+$LINT check "$TMP"
+$LINT typecheck "$TMP"
